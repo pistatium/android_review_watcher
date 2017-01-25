@@ -7,11 +7,31 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/api/androidpublisher/v2"
 	"fmt"
-	"bytes"
+	"net/http"
+	"sync"
 )
+
+var waitGroup sync.WaitGroup
+
+func getReview(client *http.Client, appId string, result chan <- []byte ) {
+	defer waitGroup.Done()
+	res, err := client.Get("https://www.googleapis.com/androidpublisher/v2/applications/" + appId + "/reviews")
+	if err != nil {
+		log.Fatalf("Unable to access review API: %v", err)
+		result <- nil
+		return
+	}
+	body, _ := ioutil.ReadAll(res.Body)
+	result <- body
+}
 
 func main() {
 	ctx := context.Background()
+
+	appIds := []string {
+		"com.appspot.pistatium.tomorrow",
+		"com.appspot.pistatium.tenseconds",
+	}
 
 	b, err := ioutil.ReadFile("client_secret.json")
 	if err != nil {
@@ -24,13 +44,16 @@ func main() {
 	}
 
 	client := config.Client(ctx)
-	appId := "com.appspot.pistatium.tomorrow"
-	res, err := client.Get("https://www.googleapis.com/androidpublisher/v2/applications/" + appId + "/reviews")
-	if err != nil {
-		log.Fatalf("Unable to access review API: %v", err)
+
+	results := make(chan []byte, 2)
+
+	for _, appId := range appIds {
+		waitGroup.Add(1)
+		go getReview(client, appId, results)
 	}
 
-	bufbody := new(bytes.Buffer)
-	bufbody.ReadFrom(res.Body)
-	fmt.Print(bufbody)
+	waitGroup.Wait()
+	for _ := range appIds {
+		fmt.Print(string(<- results))
+	}
 }
