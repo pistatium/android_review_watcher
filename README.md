@@ -1,2 +1,2 @@
 # android_review_watcher
-A tool to periodically monitor Android's new arrivals
+Tools for periodically obtaining new reviews of Android applications
