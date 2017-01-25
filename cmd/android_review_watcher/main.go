@@ -7,6 +7,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/api/androidpublisher/v2"
 	"fmt"
+	"bytes"
 )
 
 func main() {
@@ -21,11 +22,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
+
 	client := config.Client(ctx)
 	appId := "com.appspot.pistatium.tomorrow"
 	res, err := client.Get("https://www.googleapis.com/androidpublisher/v2/applications/" + appId + "/reviews")
 	if err != nil {
-		log.Fatalf("err %v", err)
+		log.Fatalf("Unable to access review API: %v", err)
 	}
-	fmt.Printf("success %v", res.Body)
+
+	bufbody := new(bytes.Buffer)
+	bufbody.ReadFrom(res.Body)
+	fmt.Print(bufbody)
 }
