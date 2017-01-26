@@ -13,16 +13,15 @@ import (
 
 var waitGroup sync.WaitGroup
 
-func getReview(client *http.Client, appId string, result chan <- []byte ) {
+func getReview(client *http.Client, appId string, result chan <- []*androidpublisher.Review ) {
 	defer waitGroup.Done()
-	res, err := client.Get("https://www.googleapis.com/androidpublisher/v2/applications/" + appId + "/reviews")
+	res, err := androidpublisher.NewReviewsService(client).List(appId).Do()
 	if err != nil {
 		log.Fatalf("Unable to access review API: %v", err)
 		result <- nil
 		return
 	}
-	body, _ := ioutil.ReadAll(res.Body)
-	result <- body
+	result <- res.Reviews
 }
 
 func main() {
@@ -45,7 +44,7 @@ func main() {
 
 	client := config.Client(ctx)
 
-	results := make(chan []byte, 2)
+	results := make(chan []*androidpublisher.Review, 2)
 
 	for _, appId := range appIds {
 		waitGroup.Add(1)
@@ -54,6 +53,9 @@ func main() {
 
 	waitGroup.Wait()
 	for _ := range appIds {
-		fmt.Print(string(<- results))
+		reviews := <- results
+		for review := range reviews {
+			fmt.Print(review)
+		}
 	}
 }
