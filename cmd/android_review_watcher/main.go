@@ -7,27 +7,24 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/api/androidpublisher/v2"
 	"fmt"
-	"net/http"
 	"sync"
 )
 
 var waitGroup sync.WaitGroup
 
-func getReview(client *http.Client, appId string, result chan <- []*androidpublisher.Review ) {
-	defer waitGroup.Done()
-	res, err := androidpublisher.NewReviewsService(client).List(appId).Do()
+func getReview(service *androidpublisher.Service, appId string) []*androidpublisher.Review {
+	res, err := service.Reviews.List(appId).Do()
 	if err != nil {
 		log.Fatalf("Unable to access review API: %v", err)
-		result <- nil
-		return
+		return nil
 	}
-	result <- res.Reviews
+	return res.Reviews
 }
 
 func main() {
 	ctx := context.Background()
 
-	appIds := []string {
+	appIds := []string{
 		"com.appspot.pistatium.tomorrow",
 		"com.appspot.pistatium.tenseconds",
 	}
@@ -44,18 +41,27 @@ func main() {
 
 	client := config.Client(ctx)
 
+	service, err := androidpublisher.New(client)
+	if err != nil {
+		log.Fatal("Unable to get service: %v", err)
+	}
+
 	results := make(chan []*androidpublisher.Review, 2)
 
 	for _, appId := range appIds {
+		log.Print(appId)
 		waitGroup.Add(1)
-		go getReview(client, appId, results)
+		go func(appId string) {
+			defer waitGroup.Done()
+			results <- getReview(service, appId)
+		}(appId)
 	}
-
 	waitGroup.Wait()
-	for _ := range appIds {
-		reviews := <- results
-		for review := range reviews {
-			fmt.Print(review)
+	for range appIds {
+		reviews := <-results
+		for _, review := range reviews {
+			fmt.Println(review.Comments[0].UserComment.StarRating)
+			fmt.Println(review.Comments[0].UserComment.Text)
 		}
 	}
 }
