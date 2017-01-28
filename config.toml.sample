@@ -1,0 +1,13 @@
+[slack_webhook]
+url = "https://hooks.slack.com/services/"
+
+[[target_app]]
+package_name = "com.appspot.pistatium.mahougen"
+
+[[target_app]]
+package_name = "com.appspot.pistatium.tomorrow"
+
+    [target_app.slack_conf]
+    username = "明日から本気出す"
+    icon_emoji = ":honkidasu:"
+    channel = "#test"
