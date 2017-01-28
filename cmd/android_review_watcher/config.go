@@ -6,15 +6,11 @@ import (
 )
 
 type Config struct {
-	SlackWebHook slackWebhook `toml:"slack_webhook"`
-	TargetApps   []targetApp `toml:"target_app"`
+	SlackWebHook golack.Webhook `toml:"slack_webhook"`
+	TargetApps   []TargetApp `toml:"target_app"`
 }
 
-type slackWebhook struct {
-	Url string
-}
-
-type targetApp struct {
+type TargetApp struct {
 	PackageName string `toml:"package_name"`
 	SlackConf   golack.Slack `toml:"slack_conf"`
 }

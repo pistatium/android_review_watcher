@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"fmt"
 	"sync"
 	"log"
@@ -9,18 +10,26 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/api/androidpublisher/v2"
 	"github.com/codegangsta/cli"
-	"os"
+	"github.com/operando/golack"
 )
 
 var waitGroup sync.WaitGroup
 
-func getReview(service *androidpublisher.Service, appId string) []*androidpublisher.Review {
-	res, err := service.Reviews.List(appId).Do()
+type AppReview struct {
+	App     TargetApp
+	Reviews []*androidpublisher.Review
+}
+
+func getReview(service *androidpublisher.Service, app TargetApp) AppReview {
+	res, err := service.Reviews.List(app.PackageName).Do()
 	if err != nil {
 		log.Fatalf("Unable to access review API: %v", err)
-		return nil
+		return AppReview{}
 	}
-	return res.Reviews
+	return AppReview{
+		App:         app,
+		Reviews:     res.Reviews,
+	}
 }
 
 func main() {
@@ -74,22 +83,30 @@ func watchReview(c *cli.Context) error {
 		log.Fatal("Unable to get service: %v", err)
 	}
 
-	results := make(chan []*androidpublisher.Review, 2)
+	results := make(chan AppReview, 2)
 	fmt.Printf("%v", appConfig)
 	for _, app := range appConfig.TargetApps {
 		log.Print(app.PackageName)
 		waitGroup.Add(1)
-		go func(appId string) {
+		go func(app TargetApp) {
 			defer waitGroup.Done()
-			results <- getReview(service, appId)
-		}(app.PackageName)
+			results <- getReview(service, app)
+		}(app)
 	}
-	waitGroup.Wait()
-	for range appConfig.TargetApps {
-		reviews := <-results
-		for _, review := range reviews {
+	go func() {
+		waitGroup.Wait()
+		close(results)
+	}()
+
+	for result := range results {
+		for _, review := range result.Reviews {
 			fmt.Println(review.Comments[0].UserComment.StarRating)
 			fmt.Println(review.Comments[0].UserComment.Text)
+			payload := golack.Payload{
+				Slack: result.App.SlackConf,
+			}
+			payload.Slack.Text = review.Comments[0].UserComment.Text
+			golack.Post(payload, appConfig.SlackWebHook)
 		}
 	}
 	return nil
