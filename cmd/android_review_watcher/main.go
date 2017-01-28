@@ -1,13 +1,15 @@
 package main
 
 import (
+	"fmt"
+	"sync"
 	"log"
 	"io/ioutil"
 	"golang.org/x/oauth2/google"
 	"golang.org/x/net/context"
 	"google.golang.org/api/androidpublisher/v2"
-	"fmt"
-	"sync"
+	"github.com/codegangsta/cli"
+	"os"
 )
 
 var waitGroup sync.WaitGroup
@@ -22,14 +24,40 @@ func getReview(service *androidpublisher.Service, appId string) []*androidpublis
 }
 
 func main() {
-	ctx := context.Background()
+	app := cli.NewApp()
+	app.Name = "android_review_watcher"
+	app.Usage = "Android Review watcher"
+	app.Version = "0.0.1"
 
-	appIds := []string{
-		"com.appspot.pistatium.tomorrow",
-		"com.appspot.pistatium.tenseconds",
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "oauth_key, o",
+			Usage: "Google OAuth key file (JSON file)",
+		},
+		cli.StringFlag{
+			Name:  "config_file, c",
+			Usage: "Application setting file (TOML file)",
+		},
 	}
 
-	b, err := ioutil.ReadFile("client_secret.json")
+	app.Action = watchReview
+
+	app.Run(os.Args)
+
+}
+
+func watchReview(c *cli.Context) error {
+
+	oauth_key := c.GlobalString("oauth_key")
+	config_file := c.GlobalString("config_file")
+
+	var appConfig Config
+
+	LoadConfig(config_file, &appConfig)
+
+	ctx := context.Background()
+
+	b, err := ioutil.ReadFile(oauth_key)
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
@@ -47,21 +75,22 @@ func main() {
 	}
 
 	results := make(chan []*androidpublisher.Review, 2)
-
-	for _, appId := range appIds {
-		log.Print(appId)
+	fmt.Printf("%v", appConfig)
+	for _, app := range appConfig.TargetApps {
+		log.Print(app.PackageName)
 		waitGroup.Add(1)
 		go func(appId string) {
 			defer waitGroup.Done()
 			results <- getReview(service, appId)
-		}(appId)
+		}(app.PackageName)
 	}
 	waitGroup.Wait()
-	for range appIds {
+	for range appConfig.TargetApps {
 		reviews := <-results
 		for _, review := range reviews {
 			fmt.Println(review.Comments[0].UserComment.StarRating)
 			fmt.Println(review.Comments[0].UserComment.Text)
 		}
 	}
+	return nil
 }
