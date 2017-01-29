@@ -23,14 +23,14 @@ type AppReview struct {
 func getReview(service *androidpublisher.Service, app TargetApp) AppReview {
 	res, err := service.Reviews.List(app.PackageName).Do()
 	if err != nil {
-		log.Fatalf("Unable to access review API: %v", err)
-		return AppReview{}
+		log.Fatalf("Unable to access review API: ", err)
 	}
 	return AppReview{
 		App:         app,
 		Reviews:     res.Reviews,
 	}
 }
+
 
 func main() {
 	app := cli.NewApp()
@@ -60,31 +60,28 @@ func watchReview(c *cli.Context) error {
 	oauth_key := c.GlobalString("oauth_key")
 	config_file := c.GlobalString("config_file")
 
-	var appConfig Config
-
-	LoadConfig(config_file, &appConfig)
+	appConfig, err := LoadConfig(config_file)
+	if err != nil {
+		log.Fatal("Unable to parse config file: ", err)
+	}
+	fmt.Printf("%v", appConfig)
 
 	ctx := context.Background()
-
 	b, err := ioutil.ReadFile(oauth_key)
 	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
+		log.Fatal("Unable to read client secret file: ", err)
 	}
-
 	config, err := google.JWTConfigFromJSON(b, androidpublisher.AndroidpublisherScope)
 	if err != nil {
-		log.Fatalf("Unable to parse client secret file to config: %v", err)
+		log.Fatal("Unable to parse client secret file to config: ", err)
 	}
-
 	client := config.Client(ctx)
-
 	service, err := androidpublisher.New(client)
 	if err != nil {
-		log.Fatal("Unable to get service: %v", err)
+		log.Fatal("Unable to get service: ", err)
 	}
 
 	results := make(chan AppReview, 2)
-	fmt.Printf("%v", appConfig)
 	for _, app := range appConfig.TargetApps {
 		log.Print(app.PackageName)
 		waitGroup.Add(1)
@@ -106,7 +103,7 @@ func watchReview(c *cli.Context) error {
 				Slack: result.App.SlackConf,
 			}
 			payload.Slack.Text = review.Comments[0].UserComment.Text
-			golack.Post(payload, appConfig.SlackWebHook)
+			// golack.Post(payload, appConfig.SlackWebHook)
 		}
 	}
 	return nil

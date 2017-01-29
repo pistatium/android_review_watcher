@@ -15,10 +15,11 @@ type TargetApp struct {
 	SlackConf   golack.Slack `toml:"slack_conf"`
 }
 
-func LoadConfig(configPath string, config *Config) (*Config, error) {
-	_, err := toml.DecodeFile(configPath, config)
+func LoadConfig(configPath string) (*Config, error) {
+	var config Config
+	_, err := toml.DecodeFile(configPath, &config)
 	if err != nil {
-		return config, err
+		return nil, err
 	}
-	return config, nil
+	return &config, nil
 }
