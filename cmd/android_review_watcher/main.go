@@ -38,6 +38,11 @@ func postSlack(reviews []Review, app TargetApp) {
 	}
 }
 
+func Int2Stars(args ...interface{}) string {
+	rate := args[0].(int)
+	return "★★★★★☆☆☆☆"[5-rate:10-rate]
+}
+
 func formatReviews(reviews []*androidpublisher.Review, interval int) []Review {
 	t := int64(time.Now().Add(time.Duration(-interval) * time.Minute).Second())
 	formatted := make([]Review, len(reviews))
@@ -45,12 +50,12 @@ func formatReviews(reviews []*androidpublisher.Review, interval int) []Review {
 		if int64(r.Comments[0].UserComment.LastModified.Seconds) < t {
 			continue
 		}
-		tpl, err := template.ParseFiles("templates/post.tpl")
-		if err != nil {
-			log.Fatal("Fail to parse template: ", err)
-		}
+		tpl := template.Must(template.ParseFiles("templates/post.tpl"))
+		tpl.Funcs(template.FuncMap{
+			"stars": Int2Stars,
+		})
 		buf := &bytes.Buffer{}
-		tpl.Execute(buf, &r)
+		tpl.Execute(buf, r)
 		formatted[i] = Review(buf.String())
 	}
 	return formatted
