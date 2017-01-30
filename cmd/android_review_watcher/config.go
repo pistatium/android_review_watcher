@@ -7,11 +7,11 @@ import (
 
 type Config struct {
 	SlackWebHook golack.Webhook `toml:"slack_webhook"`
-	TargetApps   []TargetApp `toml:"target_app"`
+	TargetApps   []TargetApp    `toml:"target_app"`
 }
 
 type TargetApp struct {
-	PackageName string `toml:"package_name"`
+	PackageName string       `toml:"package_name"`
 	SlackConf   golack.Slack `toml:"slack_conf"`
 }
 

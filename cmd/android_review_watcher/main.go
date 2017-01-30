@@ -36,7 +36,8 @@ func postSlack(review Review, app TargetApp, webhook golack.Webhook) {
 
 func Int2Stars(args ...interface{}) string {
 	rate := args[0].(int64)
-	return "★★★★★☆☆☆☆"[5-rate : 10-rate]
+	stars := []rune("★★★★★☆☆☆☆")
+	return string(stars[5-rate : 10-rate])
 }
 
 func formatReviews(reviews []*androidpublisher.Review) []Review {
