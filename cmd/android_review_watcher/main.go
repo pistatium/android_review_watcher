@@ -1,19 +1,18 @@
 package main
 
 import (
-	"os"
+	"bytes"
 	"fmt"
-	"sync"
-	"log"
-	"io/ioutil"
-	"golang.org/x/oauth2/google"
-	"golang.org/x/net/context"
-	"google.golang.org/api/androidpublisher/v2"
 	"github.com/codegangsta/cli"
 	"github.com/operando/golack"
-	"time"
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/androidpublisher/v2"
+	"io/ioutil"
+	"log"
+	"os"
+	"sync"
 	"text/template"
-	"bytes"
 )
 
 var waitGroup sync.WaitGroup
@@ -40,22 +39,20 @@ func postSlack(reviews []Review, app TargetApp) {
 
 func Int2Stars(args ...interface{}) string {
 	rate := args[0].(int64)
-	return "★★★★★☆☆☆☆"[5-rate:10-rate]
+	return "★★★★★☆☆☆☆"[5-rate : 10-rate]
 }
 
-func formatReviews(reviews []*androidpublisher.Review, interval int) []Review {
-	t := int64(time.Now().Add(time.Duration(-interval) * time.Minute).Second())
+func formatReviews(reviews []*androidpublisher.Review) []Review {
 	formatted := make([]Review, len(reviews))
 	funcMap := template.FuncMap{
 		"stars": Int2Stars,
 	}
-	tpl := template.Must(template.New("").Funcs(funcMap).ParseFiles("templates/post.tpl"))
 	for i, r := range reviews {
-		if int64(r.Comments[0].UserComment.LastModified.Seconds) < t {
-			continue
-		}
 		buf := &bytes.Buffer{}
-		tpl.Execute(buf, r)
+		tpl := template.Must(template.New("post.tpl").Funcs(funcMap).ParseFiles("templates/post.tpl"))
+		if err := tpl.Execute(buf, r); err != nil {
+			log.Print(err)
+		}
 		formatted[i] = Review(buf.String())
 	}
 	return formatted
@@ -78,13 +75,8 @@ func main() {
 			Usage: "Application setting file (TOML file)",
 			Value: "config.toml",
 		},
-		cli.IntFlag{
-			Name: "duration",
-			Usage: "Fetch duration of reviews. (minutes)",
-			Value: 24 * 60,
-		},
 		cli.BoolFlag{
-			Name: "dry_run",
+			Name:  "dry_run",
 			Usage: "Get reviews only. (without posting to slack)",
 		},
 	}
@@ -105,7 +97,7 @@ func watchReview(c *cli.Context) error {
 	if err != nil {
 		log.Fatal("Unable to parse config file: ", err)
 	}
-	fmt.Printf("%v", appConfig)
+	log.Printf("%v", appConfig)
 
 	ctx := context.Background()
 	b, err := ioutil.ReadFile(oauthKey)
@@ -128,7 +120,7 @@ func watchReview(c *cli.Context) error {
 		go func(app TargetApp) {
 			defer waitGroup.Done()
 			review := getReview(service, app)
-			formatted := formatReviews(review, 24)
+			formatted := formatReviews(review)
 			if dry_run {
 				for _, r := range formatted {
 					fmt.Println(r)
