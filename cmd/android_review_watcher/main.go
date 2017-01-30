@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/operando/golack"
 	"golang.org/x/net/context"
@@ -27,14 +26,12 @@ func getReview(service *androidpublisher.Service, app TargetApp) []*androidpubli
 	return reviews.Reviews
 }
 
-func postSlack(reviews []Review, app TargetApp) {
-	for _, r := range reviews {
-		payload := golack.Payload{
-			Slack: app.SlackConf,
-		}
-		payload.Slack.Text = string(r)
-		// golack.Post(payload, appConfig.SlackWebHook)
+func postSlack(review Review, app TargetApp, webhook golack.Webhook) {
+	payload := golack.Payload{
+		Slack: app.SlackConf,
 	}
+	payload.Slack.Text = string(review)
+	golack.Post(payload, webhook)
 }
 
 func Int2Stars(args ...interface{}) string {
@@ -47,10 +44,11 @@ func formatReviews(reviews []*androidpublisher.Review) []Review {
 	funcMap := template.FuncMap{
 		"stars": Int2Stars,
 	}
+	tpl := template.Must(template.New("post.tpl").Funcs(funcMap).ParseFiles("templates/post.tpl"))
+
 	for i, r := range reviews {
-		buf := &bytes.Buffer{}
-		tpl := template.Must(template.New("post.tpl").Funcs(funcMap).ParseFiles("templates/post.tpl"))
-		if err := tpl.Execute(buf, r); err != nil {
+		buf := bytes.Buffer{}
+		if err := tpl.Execute(&buf, r); err != nil {
 			log.Print(err)
 		}
 		formatted[i] = Review(buf.String())
@@ -121,12 +119,13 @@ func watchReview(c *cli.Context) error {
 			defer waitGroup.Done()
 			review := getReview(service, app)
 			formatted := formatReviews(review)
-			if dry_run {
-				for _, r := range formatted {
-					fmt.Println(r)
+
+			for _, r := range formatted {
+				log.Println(r)
+				if dry_run {
+					continue
 				}
-			} else {
-				postSlack(formatted, app)
+				postSlack(r, app, appConfig.SlackWebHook)
 			}
 		}(app)
 	}
