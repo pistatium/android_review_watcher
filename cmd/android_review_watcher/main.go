@@ -39,21 +39,21 @@ func postSlack(reviews []Review, app TargetApp) {
 }
 
 func Int2Stars(args ...interface{}) string {
-	rate := args[0].(int)
+	rate := args[0].(int64)
 	return "★★★★★☆☆☆☆"[5-rate:10-rate]
 }
 
 func formatReviews(reviews []*androidpublisher.Review, interval int) []Review {
 	t := int64(time.Now().Add(time.Duration(-interval) * time.Minute).Second())
 	formatted := make([]Review, len(reviews))
+	funcMap := template.FuncMap{
+		"stars": Int2Stars,
+	}
+	tpl := template.Must(template.New("").Funcs(funcMap).ParseFiles("templates/post.tpl"))
 	for i, r := range reviews {
 		if int64(r.Comments[0].UserComment.LastModified.Seconds) < t {
 			continue
 		}
-		tpl := template.Must(template.ParseFiles("templates/post.tpl"))
-		tpl.Funcs(template.FuncMap{
-			"stars": Int2Stars,
-		})
 		buf := &bytes.Buffer{}
 		tpl.Execute(buf, r)
 		formatted[i] = Review(buf.String())
@@ -71,10 +71,12 @@ func main() {
 		cli.StringFlag{
 			Name:  "oauth_key, o",
 			Usage: "Google OAuth key file (JSON file)",
+			Value: "client_secret.json",
 		},
 		cli.StringFlag{
 			Name:  "config_file, c",
 			Usage: "Application setting file (TOML file)",
+			Value: "config.toml",
 		},
 		cli.IntFlag{
 			Name: "duration",
@@ -129,7 +131,7 @@ func watchReview(c *cli.Context) error {
 			formatted := formatReviews(review, 24)
 			if dry_run {
 				for _, r := range formatted {
-					fmt.Print(r)
+					fmt.Println(r)
 				}
 			} else {
 				postSlack(formatted, app)
