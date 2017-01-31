@@ -1,35 +1,60 @@
 package main
 
 import (
-	"os"
-	"fmt"
-	"sync"
-	"log"
-	"io/ioutil"
-	"golang.org/x/oauth2/google"
-	"golang.org/x/net/context"
-	"google.golang.org/api/androidpublisher/v2"
+	"bytes"
 	"github.com/codegangsta/cli"
 	"github.com/operando/golack"
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/androidpublisher/v2"
+	"io/ioutil"
+	"log"
+	"os"
+	"sync"
+	"text/template"
 )
 
 var waitGroup sync.WaitGroup
 
-type AppReview struct {
-	App     TargetApp
-	Reviews []*androidpublisher.Review
+type Review string
+
+func getReview(service *androidpublisher.Service, app TargetApp) []*androidpublisher.Review {
+	reviews, err := service.Reviews.List(app.PackageName).Do()
+	if err != nil {
+		log.Fatalf("Unable to access review API: ", err)
+	}
+	return reviews.Reviews
 }
 
-func getReview(service *androidpublisher.Service, app TargetApp) AppReview {
-	res, err := service.Reviews.List(app.PackageName).Do()
-	if err != nil {
-		log.Fatalf("Unable to access review API: %v", err)
-		return AppReview{}
+func postSlack(review Review, app TargetApp, webhook golack.Webhook) {
+	payload := golack.Payload{
+		Slack: app.SlackConf,
 	}
-	return AppReview{
-		App:         app,
-		Reviews:     res.Reviews,
+	payload.Slack.Text = string(review)
+	golack.Post(payload, webhook)
+}
+
+func Int2Stars(args ...interface{}) string {
+	rate := args[0].(int64)
+	stars := []rune("★★★★★☆☆☆☆")
+	return string(stars[5-rate : 10-rate])
+}
+
+func formatReviews(reviews []*androidpublisher.Review) []Review {
+	formatted := make([]Review, len(reviews))
+	funcMap := template.FuncMap{
+		"stars": Int2Stars,
 	}
+	tpl := template.Must(template.New("post.tpl").Funcs(funcMap).ParseFiles("templates/post.tpl"))
+
+	for i, r := range reviews {
+		buf := bytes.Buffer{}
+		if err := tpl.Execute(&buf, r); err != nil {
+			log.Print(err)
+		}
+		formatted[i] = Review(buf.String())
+	}
+	return formatted
 }
 
 func main() {
@@ -42,10 +67,16 @@ func main() {
 		cli.StringFlag{
 			Name:  "oauth_key, o",
 			Usage: "Google OAuth key file (JSON file)",
+			Value: "client_secret.json",
 		},
 		cli.StringFlag{
 			Name:  "config_file, c",
 			Usage: "Application setting file (TOML file)",
+			Value: "config.toml",
+		},
+		cli.BoolFlag{
+			Name:  "dry_run",
+			Usage: "Get reviews only. (without posting to slack)",
 		},
 	}
 
@@ -57,57 +88,48 @@ func main() {
 
 func watchReview(c *cli.Context) error {
 
-	oauth_key := c.GlobalString("oauth_key")
-	config_file := c.GlobalString("config_file")
+	oauthKey := c.GlobalString("oauth_key")
+	configFile := c.GlobalString("config_file")
+	dry_run := c.GlobalBool("dry_run")
 
-	var appConfig Config
-
-	LoadConfig(config_file, &appConfig)
+	appConfig, err := LoadConfig(configFile)
+	if err != nil {
+		log.Fatal("Unable to parse config file: ", err)
+	}
+	log.Printf("%v", appConfig)
 
 	ctx := context.Background()
-
-	b, err := ioutil.ReadFile(oauth_key)
+	b, err := ioutil.ReadFile(oauthKey)
 	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
+		log.Fatal("Unable to read client secret file: ", err)
 	}
-
 	config, err := google.JWTConfigFromJSON(b, androidpublisher.AndroidpublisherScope)
 	if err != nil {
-		log.Fatalf("Unable to parse client secret file to config: %v", err)
+		log.Fatal("Unable to parse client secret file to config: ", err)
 	}
-
 	client := config.Client(ctx)
-
 	service, err := androidpublisher.New(client)
 	if err != nil {
-		log.Fatal("Unable to get service: %v", err)
+		log.Fatal("Unable to get service: ", err)
 	}
 
-	results := make(chan AppReview, 2)
-	fmt.Printf("%v", appConfig)
 	for _, app := range appConfig.TargetApps {
 		log.Print(app.PackageName)
 		waitGroup.Add(1)
 		go func(app TargetApp) {
 			defer waitGroup.Done()
-			results <- getReview(service, app)
+			review := getReview(service, app)
+			formatted := formatReviews(review)
+
+			for _, r := range formatted {
+				log.Println(r)
+				if dry_run {
+					continue
+				}
+				postSlack(r, app, appConfig.SlackWebHook)
+			}
 		}(app)
 	}
-	go func() {
-		waitGroup.Wait()
-		close(results)
-	}()
-
-	for result := range results {
-		for _, review := range result.Reviews {
-			fmt.Println(review.Comments[0].UserComment.StarRating)
-			fmt.Println(review.Comments[0].UserComment.Text)
-			payload := golack.Payload{
-				Slack: result.App.SlackConf,
-			}
-			payload.Slack.Text = review.Comments[0].UserComment.Text
-			golack.Post(payload, appConfig.SlackWebHook)
-		}
-	}
+	waitGroup.Wait()
 	return nil
 }
