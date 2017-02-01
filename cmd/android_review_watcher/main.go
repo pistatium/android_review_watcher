@@ -57,6 +57,24 @@ func formatReviews(reviews []*androidpublisher.Review) []Review {
 	return formatted
 }
 
+func filterDuplicated(app TargetApp, reviews []*androidpublisher.Review) []*androidpublisher.Review {
+	cursor := NewCursor(app.PackageName)
+	c, err := cursor.Load()
+	if err != nil {
+		log.Fatal("Load cursor error: ", err)
+	}
+	var index int
+	for i, r := range reviews {
+		rts := r.Comments[0].UserComment.LastModified.Seconds
+		if rts <= c {
+			break
+		}
+		index = i
+	}
+	cursor.Save(reviews[0].Comments[0].UserComment.LastModified.Seconds)
+	return reviews[:index]
+}
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "android_review_watcher"
@@ -114,11 +132,11 @@ func watchReview(c *cli.Context) error {
 	}
 
 	for _, app := range appConfig.TargetApps {
-		log.Print(app.PackageName)
 		waitGroup.Add(1)
 		go func(app TargetApp) {
 			defer waitGroup.Done()
 			review := getReview(service, app)
+			review = filterDuplicated(app, review)
 			formatted := formatReviews(review)
 
 			for _, r := range formatted {
