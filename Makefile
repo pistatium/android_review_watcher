@@ -1,4 +1,4 @@
-.PHONY: help deps build-artifacts test
+.PHONY: help deps build-artifacts upload-artifacts test
 
 CMD_DIR=./cmd/android_review_watcher
 
@@ -8,6 +8,7 @@ help:
 deps: ## Install requirements
 	go get -v ./...
 	go get github.com/mitchellh/gox
+	go get github.com/tcnksm/ghr
 
 build-artifacts: deps ## Build command tool package
 	cd $(CMD_DIR); mkdir -p android_review_watcher
@@ -15,5 +16,8 @@ build-artifacts: deps ## Build command tool package
 	cd $(CMD_DIR); zip -r artifacts.zip android_review_watcher
 	cd $(CMD_DIR); rm -r android_review_watcher
 
+upload-artifacts: ## Upload artifacts to github
+	cd $(CMD_DIR); ghr -t $GITHUB_TOKEN -u $USERNAME -r $CIRCLE_PROJECT_REPONAME artifacts.zip
+
 test: deps ## Run test
-	go test
+	go test -cover

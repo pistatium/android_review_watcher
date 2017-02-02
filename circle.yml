@@ -1,0 +1,11 @@
+machne:
+  timezone:
+    Asia/Tokyo
+test:
+  override:
+    - make test
+deployment:
+  deploy:
+    commands:
+      - make build-artifacts
+      - make upload-artifacts
