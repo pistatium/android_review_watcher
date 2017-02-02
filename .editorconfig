@@ -1,0 +1,5 @@
+root = true
+
+[{Makefile, makefile, GNUmakefile}]
+indent_style = tab
+
