@@ -6,6 +6,7 @@ test:
     - make test
 deployment:
   deploy:
+    tag: test
     commands:
       - make build-artifacts
       - make upload-artifacts
