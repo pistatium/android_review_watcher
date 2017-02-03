@@ -18,7 +18,7 @@ build-artifacts: deps ## Build command tool package
 	cd $(CMD_DIR); rm -r android_review_watcher
 
 upload-artifacts: ## Upload artifacts to github
-	cd $(CMD_DIR); ghr -t $GITHUB_TOKEN -u $USERNAME -r $CIRCLE_PROJECT_REPONAME --replace `cat release_tag` artifacts.zip
+	cd $(CMD_DIR); ghr -t $GITHUB_TOKEN -u $USERNAME -r $CIRCLE_PROJECT_REPONAME $CIRCLE_TAG artifacts.zip
 
 test: deps ## Run test
 	go test -cover
