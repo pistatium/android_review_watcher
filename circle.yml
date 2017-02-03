@@ -6,7 +6,7 @@ test:
     - make test
 deployment:
   deploy:
-    tag: test
+    tag: /test-v[0-9.]*/
     commands:
       - make build-artifacts
       - make upload-artifacts
