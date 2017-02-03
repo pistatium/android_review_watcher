@@ -1,5 +1,7 @@
 # android_review_watcher
 
+[![CircleCI](https://circleci.com/gh/pistatium/android_review_watcher/tree/master.svg?style=svg)](https://circleci.com/gh/pistatium/android_review_watcher/tree/master)
+
 This application is a tool to periodically get a review of Android and notify Slack.
 It is using a Google API official API to get reviews.
 
