@@ -21,7 +21,7 @@ It is using a Google API official API to get reviews.
 
 ```bash
 # Download Zip 
-android_review_watcher -c config.toml -o client_secret.json
+./android_review_watcher -c config.toml -o client_secret.json
 ```
 
 or

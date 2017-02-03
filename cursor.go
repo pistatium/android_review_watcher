@@ -1,4 +1,4 @@
-package main
+package android_review_watcher
 
 import (
 	"io/ioutil"

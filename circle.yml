@@ -1,0 +1,12 @@
+machine:
+  timezone:
+    Asia/Tokyo
+test:
+  override:
+    - make test
+deployment:
+  deploy:
+    tag: /v[0-9.]*/
+    commands:
+      - make build-artifacts
+      - make upload-artifacts
