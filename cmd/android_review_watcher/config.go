@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/BurntSushi/toml"
 	"github.com/operando/golack"
+	. "github.com/pistatium/android_review_watcher"
 )
 
 type Config struct {
@@ -15,11 +16,19 @@ type TargetApp struct {
 	SlackConf   golack.Slack `toml:"slack_conf"`
 }
 
-func LoadConfig(configPath string) (*Config, error) {
+func LoadApps(configPath string) ([]App, error) {
 	var config Config
 	_, err := toml.DecodeFile(configPath, &config)
 	if err != nil {
 		return nil, err
 	}
-	return &config, nil
+	apps := make([]App, len(config.TargetApps))
+	for i, target := range config.TargetApps {
+		apps[i] = App{
+			PackageName: target.PackageName,
+			Writer:      NewSlackWriter(config.SlackWebHook, target.SlackConf),
+		}
+	}
+
+	return apps, nil
 }
