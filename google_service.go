@@ -7,9 +7,9 @@ import (
 	"io/ioutil"
 )
 
-func GetGoogleService(oauthKey string) (*androidpublisher.Service, error) {
+func GetGoogleService(serviceAcountKey string) (*androidpublisher.Service, error) {
 	ctx := context.Background()
-	b, err := ioutil.ReadFile(oauthKey)
+	b, err := ioutil.ReadFile(serviceAcountKey)
 	if err != nil {
 		return nil, err
 	}

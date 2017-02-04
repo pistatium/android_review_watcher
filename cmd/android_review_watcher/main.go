@@ -19,9 +19,9 @@ func main() {
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name:  "oauth_key, o",
-			Usage: "Google OAuth key file (JSON file)",
-			Value: "client_secret.json",
+			Name:  "service_account_key, s",
+			Usage: "Google ServiceAccount key file (JSON file)",
+			Value: "service_account_key.json",
 		},
 		cli.StringFlag{
 			Name:  "config_file, c",
@@ -42,7 +42,7 @@ func main() {
 
 func watchReview(c *cli.Context) error {
 
-	oauthKey := c.GlobalString("oauth_key")
+	service_account_key := c.GlobalString("service_account_key")
 	configFile := c.GlobalString("config_file")
 	dry_run := c.GlobalBool("dry_run")
 
@@ -51,7 +51,7 @@ func watchReview(c *cli.Context) error {
 		log.Fatal("Unable to parse config file: ", err)
 	}
 
-	service, err := GetGoogleService(oauthKey)
+	service, err := GetGoogleService(service_account_key)
 	if err != nil {
 		log.Fatal("Unable to get google service:", err)
 	}
