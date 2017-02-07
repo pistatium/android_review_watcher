@@ -26,6 +26,7 @@ It is using a Google API official API to get reviews.
 
 ```bash
 # Download Zip (for Linux)
+#   https://github.com/pistatium/android_review_watcher/releases
 ./android_review_watcher -c config.toml -o service_account.json
 ```
 
